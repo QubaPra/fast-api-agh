@@ -1,13 +1,13 @@
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Optional
 from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
 
 
 class StudentCreateSchema(BaseModel):
-    first_name: str
-    last_name: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 students: Dict[int, StudentCreateSchema] = {}
@@ -44,8 +44,8 @@ async def list_students():
 
 
 class StudentUpdateSchema(BaseModel):
-    first_name: str
-    last_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 
 @app.get("/student/{id}")
@@ -65,17 +65,22 @@ async def update_student(id: int, student: StudentUpdateSchema):
     """
     if id not in students:
         raise HTTPException(status_code=404, detail="Student not found")
-    if any(char.isdigit() for char in student.first_name) or any(char.isdigit() for char in student.last_name):
+    if (student.first_name and any(char.isdigit() for char in student.first_name)) or (student.last_name and any(char.isdigit() for char in student.last_name)):
         raise HTTPException(
             status_code=400, detail="Student information cannot contain digits")
-    if not student.first_name or not student.last_name:
-        raise HTTPException(
-            status_code=400, detail="Student information cannot be empty")
+    if student.first_name == None:
+        student.first_name = students[id].first_name
+    if student.last_name == None:
+        student.last_name = students[id].last_name
+    
     existing_ids = [student_id for student_id, s in students.items(
     ) if s.first_name == student.first_name and s.last_name == student.last_name]
     if len(existing_ids) > 1 or (len(existing_ids) == 1 and existing_ids[0] != id):
         raise HTTPException(
             status_code=400, detail="Duplicate student information")
-    students[id].first_name = student.first_name
+
+
+    
+    students[id].first_name = student.first_name    
     students[id].last_name = student.last_name
     return {"id": id, **students[id].dict()}
